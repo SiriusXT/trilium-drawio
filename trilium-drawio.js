@@ -1,14 +1,14 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.1
+version:0.2
 */
+
 var currentNoteId;
 var themeStyle = getComputedStyle(document.documentElement).getPropertyValue('--theme-style');
 var last_image_wrapper;
 var editor = 'https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json&configure=1';
 var id_svg_dict={}
-
 
 function edit(noteId) {
     var svg=id_svg_dict[noteId];
@@ -17,7 +17,7 @@ function edit(noteId) {
 	var iframe = document.createElement('iframe');
 	iframe.setAttribute('frameborder', '0');
 
-	if (themeStyle.indexOf('dark') > 0) { iframe.setAttribute('class', 'dark'); }
+	if (themeStyle.indexOf('dark') >= 0) { iframe.setAttribute('class', 'dark'); }
 
 
 	var close = function () {
@@ -30,6 +30,7 @@ function edit(noteId) {
 	};
 	var receive = function (evt) {
 		if (noteId != currentNoteId || iframe == undefined) { return; }
+        console.log(iframe);
 		if (evt.data.length > 0) {
 			var msg = JSON.parse(evt.data);
 
@@ -39,7 +40,7 @@ function edit(noteId) {
 			if (msg.event == 'configure') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'configure',
-					config: { defaultFonts: ["Humor Sans", "Helvetica", "Times New Roman"], css: "div[style='display: inline-flex; align-items: center; margin-left: auto;'] button:nth-of-type(2n+1) {display: none;}" }
+					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman"], css: "div[style='display: inline-flex; align-items: center; margin-left: auto;'] button:nth-of-type(2n+1) {display: none;}" }
 				}), '*');
 			}
 			else if (msg.event == 'init') {
@@ -89,8 +90,8 @@ function addClick(noteId,autoEdit) {
 			edit( noteId);
 		});
 	}
-	if (themeStyle.indexOf('dark') > 0) { $img.addClass('dark'); }
-	else if (themeStyle.indexOf('light') > 0) { $img.addClass('light'); }
+	if (themeStyle.indexOf('dark') >= 0) { $img.addClass('dark'); }
+	else if (themeStyle.indexOf('light') >= 0) { $img.addClass('light'); }
     if (autoEdit){
         edit( noteId);
     }
@@ -168,8 +169,8 @@ iframe {
 
 				});
 			}
-
-			last_image_wrapper = $("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper");
+            console.log(ischangeTab)
+			last_image_wrapper = $("div.component.note-split:not(.hidden-ext) div.scrolling-container.component");// div.note-detail-image-wrapper
 			if (!ischangeTab) {
 				if ($("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper iframe").length > 0) { $("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper iframe").remove(); }
 				if ($("div.component.note-split:not(.hidden-ext) .note-detail-printable.component div.note-detail-image-wrapper img.note-detail-image-view").length > 0) { $("div.component.note-split:not(.hidden-ext) .note-detail-printable.component div.note-detail-image-wrapper img.note-detail-image-view").css("display", "block"); }
@@ -182,14 +183,13 @@ iframe {
 			}
 			if (note.mime != "image/svg+xml" || id_svg_dict[noteId].indexOf("mxfile") < 0) { return; }
 			setTimeout(function () {
+                console.log($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper iframe").length);
 				if ($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper iframe").length > 0) { return; };//When switching tabs, if the iframe is already loaded, return
 
 				addClick(noteId,autoEdit);
 			}, 10);
 			$("div.ribbon-tab-title.active").click();
 		});
-
-
 
 	}
 }
