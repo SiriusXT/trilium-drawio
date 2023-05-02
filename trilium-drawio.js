@@ -12,6 +12,7 @@ var id_svg_dict={}
 
 function edit(noteId) {
     var svg=id_svg_dict[noteId];
+    var svg_utf_8=svg;
 	var parentElement = document.querySelector('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper');
 	$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper .note-detail-image-view").css("display", "none");
 	var iframe = document.createElement('iframe');
@@ -25,12 +26,14 @@ function edit(noteId) {
 		window.removeEventListener('message', receive);
 		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper iframe").remove();
 		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper img.note-detail-image-view").css("display", "block");
-		var base64 = "data:image/svg+xml;base64," + btoa(svg)
+        const decodedString=svg;
+        const utf8Array = new TextEncoder().encode(decodedString); 
+const base64String = btoa(String.fromCharCode(...utf8Array)); 
+		var base64 = "data:image/svg+xml;base64," + base64String;
 		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper img.note-detail-image-view").attr("src", base64);
 	};
 	var receive = function (evt) {
 		if (noteId != currentNoteId || iframe == undefined) { return; }
-        console.log(iframe);
 		if (evt.data.length > 0) {
 			var msg = JSON.parse(evt.data);
 
@@ -40,7 +43,7 @@ function edit(noteId) {
 			if (msg.event == 'configure') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'configure',
-					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman"], css: "div[style='display: inline-flex; align-items: center; margin-left: auto;'] button:nth-of-type(2n+1) {display: none;}" }
+					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman","SimSun"], css: "div[style='display: inline-flex; align-items: center; margin-left: auto;'] button:nth-of-type(2n+1) {display: none;}" }
 				}), '*');
 			}
 			else if (msg.event == 'init') {
@@ -48,7 +51,12 @@ function edit(noteId) {
 			}
 			else if (msg.event == 'export') {
 				// Extracts SVG DOM from data URI to enable links
-				svg = atob(msg.data.substring(msg.data.indexOf(',') + 1));
+				//svg = atob(msg.data.substring(msg.data.indexOf(',') + 1));
+                var base64String=msg.data.substring(msg.data.indexOf(',') + 1);
+                const bytes = new Uint8Array(atob(base64String).split('').map(c => c.charCodeAt(0))); 
+const decoder = new TextDecoder('utf-8'); 
+const decodedString = decoder.decode(bytes); 
+                svg=decodedString;
                 id_svg_dict[noteId]=svg;
 				api.runOnBackend(async (noteId, svg) => {
 					const note = await api.getNote(noteId);
@@ -173,7 +181,6 @@ iframe {
 
 				});
 			}
-            console.log(ischangeTab)
 			last_image_wrapper = $("div.component.note-split:not(.hidden-ext) div.scrolling-container.component");// div.note-detail-image-wrapper
 			if (!ischangeTab) {
 				if ($("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper iframe").length > 0) { $("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper iframe").remove(); }
@@ -187,7 +194,6 @@ iframe {
 			}
 			if (note.mime != "image/svg+xml" || id_svg_dict[noteId].indexOf("mxfile") < 0) { return; }
 			setTimeout(function () {
-                console.log($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper iframe").length);
 				if ($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper iframe").length > 0) { return; };//When switching tabs, if the iframe is already loaded, return
 
 				addClick(noteId,autoEdit);
