@@ -109,6 +109,10 @@ class DrawiIo extends api.NoteContextAwareWidget {
 		this.$widget = $(`<style type="text/css">
         img.note-detail-image-view{
             transform: none !important;
+            width: max-content;
+    max-width: 100%;
+    height: max-content;
+    max-height: 100%;
         }
         img.note-detail-image-view.light{
             transform: none !important;
