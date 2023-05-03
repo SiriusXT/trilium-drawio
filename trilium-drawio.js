@@ -9,11 +9,20 @@ var themeStyle = getComputedStyle(document.documentElement).getPropertyValue('--
 var last_image_wrapper;
 var editor = 'https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json&configure=1';
 var id_svg_dict={}
-
+function  fullScreen (){
+    const $iframe=$("div.component.note-split:not(.hidden-ext) iframe");
+    if ($iframe.length>0){
+    $iframe.appendTo($(parent.document).find("body"));
+    $iframe.css("position","fixed"); }  
+    else {
+    const $iframe=$("body > iframe");
+        $("iframe").appendTo($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper"));
+        $iframe.css("position","static"); 
+    }
+        
+}
 function edit(noteId) {
     var svg=id_svg_dict[noteId];
-    var svg_utf_8=svg;
-	var parentElement = document.querySelector('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper');
 	$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper .note-detail-image-view").css("display", "none");
 	var iframe = document.createElement('iframe');
 	iframe.setAttribute('frameborder', '0');
@@ -43,7 +52,7 @@ const base64String = btoa(String.fromCharCode(...utf8Array));
 			if (msg.event == 'configure') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'configure',
-					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman","SimSun"], css: "div[style='display: inline-flex; align-items: center; margin-left: auto;'] button:nth-of-type(2n+1) {display: none;}" }
+					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman","SimSun"], css: "div[style='display: inline-flex; align-items: center; margin-left: auto;'] button:nth-of-type(2n+1) {display: none;} body.geEditor > div.mxWindow:nth-of-type(3) { right: 0px !important; top:63px !important;   left: unset !important;} body.geEditor > div.mxWindow:nth-of-type(2) { left: 17px !important; top:63px !important;  " }
 				}), '*');
 			}
 			else if (msg.event == 'init') {
@@ -85,8 +94,8 @@ const decodedString = decoder.decode(bytes);
 	};
 
 	iframe.setAttribute('src', editor);
-	parentElement.appendChild(iframe);
-	window.addEventListener('message', receive);
+	document.querySelector('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper').appendChild(iframe);
+    window.addEventListener('message', receive);
 };
 
  
@@ -115,7 +124,7 @@ class DrawiIo extends api.NoteContextAwareWidget {
 
 	doRender() {
 		this.$widget = $(`<style type="text/css">
-        img.note-detail-image-view{
+        img.note-detail-image-view{        
             transform: none !important;
             width: max-content;
     max-width: 100%;
