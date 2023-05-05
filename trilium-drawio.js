@@ -1,12 +1,13 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.3
+version:0.3.1
 */
 
 var currentNoteId;
 var themeStyle = getComputedStyle(document.documentElement).getPropertyValue('--theme-style');
-var last_image_wrapper;
+var $last_image_wrapper;//Used to detect tab switching
+var last_noteId;//For detection and switching of new tab pages
 var editor = 'https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json&configure=1&libraries=1&noSaveBtn=1';
 var id_svg_dict = {}
 
@@ -51,7 +52,7 @@ function edit(noteId) {
             }
         }
     });
-    $('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-switch-full-screen.bx').click(function(event){
+    $('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-switch-full-screen.bx').click(function(event){//Drawio full screen
      event.stopPropagation();
      const $iframe_tmp = $("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio");
 	if ($iframe_tmp.length > 0) {
@@ -96,10 +97,10 @@ function edit(noteId) {
 	};
     
 	var receive = function (evt) {
-		if (noteId != currentNoteId || div_iframe == undefined) { return; }
+		if (noteId != currentNoteId || div_iframe == undefined || iframe.contentWindow==null) { return; }
 		if (evt.data.length > 0) {
 			var msg = JSON.parse(evt.data);
-
+        
 			// If configure=1 URL parameter is used the application
 			// waits for this message. For configuration options see
 			// https://desk.draw.io/support/solutions/articles/16000058316
@@ -129,22 +130,17 @@ function edit(noteId) {
 			else if (msg.event == 'autosave') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'export',
-					format: 'xmlsvg', xml: msg.xml, spin: 'Updating page',
+					format: 'xmlsvg',  spin: 'Updating page',
 				}), '*');
 
 			}
 			else if (msg.event == 'save') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'export',
-					format: 'xmlsvg', xml: msg.xml, spin: 'Updating page'
+					format: 'xmlsvg',  spin: 'Updating page'
 				}), '*');
-				close();
 			}
 			else if (msg.event == 'exit') {
-                iframe.contentWindow.postMessage(JSON.stringify({
-					action: 'export',
-					format: 'xmlsvg', xml: msg.xml, spin: 'Updating page'
-				}), '*');
                 close();
 			}
 		}
@@ -226,11 +222,10 @@ div.iframe-drawio.dark{
 </style>`);
 		return this.$widget;
 	}
-
+    
 	async refreshWithNote(note) {
 		var noteId = note.noteId;
 		currentNoteId = noteId;
-		window.note = note;
 		var autoEdit = false;
 		id_svg_dict[noteId] = (await note.getNoteComplement()).content;
 		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && (await note.getNoteComplement()).content == undefined) {
@@ -248,9 +243,9 @@ div.iframe-drawio.dark{
 
 		$(document).ready(function () {
 			var ischangeTab = false;
-			if (last_image_wrapper != undefined && last_image_wrapper.length > 0) {
-				window.last_image_wrapper = last_image_wrapper;
-				$.each(last_image_wrapper.parents(), function (index, value) {
+			if ($last_image_wrapper != undefined && $last_image_wrapper.length > 0) {
+				window.last_image_wrapper = $last_image_wrapper;
+				$.each($last_image_wrapper.parents(), function (index, value) {
 					var truecount = 0;
 					$.each(value.classList, function (index1, classL) {
 						if (classL == "note-split") { truecount += 1; }
@@ -262,7 +257,11 @@ div.iframe-drawio.dark{
 
 				});
 			}
-			last_image_wrapper = $("div.component.note-split:not(.hidden-ext) div.scrolling-container.component");// div.note-detail-image-wrapper
+            if (last_noteId != undefined && last_noteId==noteId){
+                ischangeTab = true;
+            }
+			$last_image_wrapper = $("div.component.note-split:not(.hidden-ext) div.scrolling-container.component");
+            last_noteId = noteId;
 			if (!ischangeTab) {
 				if ($("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper div.iframe-drawio").length > 0) { $("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper div.iframe-drawio").remove(); }
 				if ($("div.component.note-split:not(.hidden-ext) .note-detail-printable.component div.note-detail-image-wrapper img.note-detail-image-view").length > 0) { $("div.component.note-split:not(.hidden-ext) .note-detail-printable.component div.note-detail-image-wrapper img.note-detail-image-view").css("display", "block"); }
@@ -276,7 +275,6 @@ div.iframe-drawio.dark{
 			if (note.mime != "image/svg+xml" || id_svg_dict[noteId].indexOf("mxfile") < 0) { return; }
 			setTimeout(function () {
 				if ($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio").length > 0) { return; };//When switching tabs, if the iframe is already loaded, return
-
 				addClick(noteId, autoEdit);
 			}, 10);
 			$("div.ribbon-tab-title.active").click();
