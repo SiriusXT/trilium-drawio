@@ -285,3 +285,13 @@ div.iframe-drawio.dark{
 }
 
 module.exports = new DrawiIo();
+
+window.onbeforeunload = function () { 
+	if ($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio").length > 0) {
+			$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio").remove();
+		}
+		else {
+			$("body > div.iframe-drawio").remove();
+            $(".tab-row-filler").css("-webkit-app-region","drag");
+		}
+};
