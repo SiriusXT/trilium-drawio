@@ -236,7 +236,7 @@ div.iframe-drawio.dark{
 				const Note = await api.getNote(NoteId);
 				Note.setContent(svg);
 				Note.mime = "image/svg+xml";
-				Note.title = Note.title + ".drawio"
+				Note.title = Note.title + ".drawio.svg"
 				Note.save();
 			}, [noteId, id_svg_dict[noteId]]);
 		}
