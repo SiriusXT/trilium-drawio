@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.3.1
+version:0.3.2
 */
 
 var currentNoteId;
@@ -87,8 +87,8 @@ function edit(noteId) {
 		}
 		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper img.note-detail-image-view").css("display", "block");
 		const decodedString = svg;
-		const utf8Array = new TextEncoder().encode(decodedString);
-		const base64String = btoa(String.fromCharCode(...utf8Array));
+		//const utf8Array = new TextEncoder().encode(decodedString);
+		const base64String = btoa(decodedString);//btoa(String.fromCharCode(...utf8Array));
 		var base64 = "data:image/svg+xml;base64," + base64String;
 		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper img.note-detail-image-view").attr("src", base64);
         $('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').click(noteId, function () {
