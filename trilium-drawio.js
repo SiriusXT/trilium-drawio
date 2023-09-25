@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.3.2
+version:0.3.3
 */
 
 var currentNoteId;
@@ -195,7 +195,7 @@ iframe{
 div.iframe-drawio.dark{
   filter: invert(88%) hue-rotate(180deg);
 }
-        iframe {
+  .iframe-drawio      iframe {
 			border:0;
 			right:0;
 			bottom:0;
