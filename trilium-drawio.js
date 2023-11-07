@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.3.3
+version:0.3.4
 */
 
 var currentNoteId;
@@ -122,7 +122,7 @@ function edit(noteId) {
 				const decodedString = decoder.decode(bytes);
 				svg = decodedString;
 				id_svg_dict[noteId] = svg;
-				api.runOnBackend(async (noteId, svg) => {
+				api.runAsyncOnBackendWithManualTransactionHandling(async (noteId, svg) => {
 					const note = await api.getNote(noteId);
 					note.setContent(svg);
 				}, [noteId, svg]);
@@ -232,7 +232,7 @@ div.iframe-drawio.dark{
 			id_svg_dict[noteId] = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1px" height="1px" viewBox="-0.5 -0.5 1 1" content="&lt;mxfile host=&quot;app.diagrams.net&quot; modified=&quot;2023-04-29T09:11:12.196Z&quot; agent=&quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/112.0&quot; etag=&quot;fO2zVAtDBdoeKHVc3k6l&quot; version=&quot;21.2.3&quot;&gt;&#xA;  &lt;diagram name=&quot;Page-1&quot; id=&quot;mQcrQwb1aOjnsej_quHy&quot;&gt;&#xA;    &lt;mxGraphModel dx=&quot;1238&quot; dy=&quot;773&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;827&quot; pageHeight=&quot;1169&quot; math=&quot;0&quot; shadow=&quot;0&quot;&gt;&#xA;      &lt;root&gt;&#xA;        &lt;mxCell id=&quot;0&quot; /&gt;&#xA;        &lt;mxCell id=&quot;1&quot; parent=&quot;0&quot; /&gt;&#xA;      &lt;/root&gt;&#xA;    &lt;/mxGraphModel&gt;&#xA;  &lt;/diagram&gt;&#xA;&lt;/mxfile&gt;&#xA;" resource="https://app.diagrams.net/?src=about#"><defs/><g/></svg>`;
 			note.mime = "image/svg+xml";
 			autoEdit = true;
-			api.runOnBackend(async (NoteId, svg) => {
+			api.runAsyncOnBackendWithManualTransactionHandling(async (NoteId, svg) => {
 				const Note = await api.getNote(NoteId);
 				Note.setContent(svg);
 				Note.mime = "image/svg+xml";

@@ -1,5 +1,5 @@
 ﻿# trilium-drawio
-## version: 0.3.1 
+## version: 0.3.4 >0.62
 ## Draw.io is a JavaScript, client-side editor for general diagramming and whiteboarding. **This widget allows you to use drawio drawing in trilium.**
 ## Installation
 1. Create a code note of type JS Frontend with the contents of `trilium-drawio.js` and the label `#widget`
