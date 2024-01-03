@@ -1,8 +1,10 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.3.4
+version:0.4
 */
+
+var defaultTheme = "0" //0:light;1:dark;,2:Follow software theme styles
 
 var currentNoteId;
 var themeStyle = getComputedStyle(document.documentElement).getPropertyValue('--theme-style');
@@ -10,71 +12,72 @@ var $last_image_wrapper;//Used to detect tab switching
 var last_noteId;//For detection and switching of new tab pages
 var editor = 'https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json&configure=1&libraries=1&noSaveBtn=1';
 var id_svg_dict = {}
+var noteId = ''
 
 function edit(noteId) {
-    $('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').off("click");
-    
+	$('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').off("click");
+
 	var svg = id_svg_dict[noteId];
 	$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper .note-detail-image-view").css("display", "none");
-    var div_iframe = document.createElement('div');
-    div_iframe.classList.add("iframe-drawio");
+	var div_iframe = document.createElement('div');
+	div_iframe.classList.add("iframe-drawio");
 	var iframe = document.createElement('iframe');
 	iframe.setAttribute('frameborder', '0');
-	if (themeStyle.indexOf('dark') >= 0) { div_iframe.classList.add("dark"); }
+	if (themeStyle.indexOf('dark') >= 0 && defaultTheme != 0) { div_iframe.classList.add("dark"); }
 	iframe.setAttribute('src', editor);
 	document.querySelector('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper').appendChild(div_iframe);
-    
-      div_iframe.appendChild(iframe);
-    $('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio').prepend(`<div class="drawio-iframe" style=" position: absolute; border-radius: 5px; color:#837d7d; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 11%), inset 0 -1px 0 0 rgb(0 0 0 / 8%), 0 1px 2px 0 rgb(0 0 0 / 4%);
+
+	div_iframe.appendChild(iframe);
+	$('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio').prepend(`<div class="drawio-iframe" style=" position: absolute; border-radius: 5px; color:#837d7d; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 11%), inset 0 -1px 0 0 rgb(0 0 0 / 8%), 0 1px 2px 0 rgb(0 0 0 / 4%);
  right: 8px; top: 8px;  padding: 0px 4px; ">
 <div class="drawio-switch-theme bx" title="Drawio Switch Theme" style="cursor: pointer; padding: 6px;"></div>
 <div class="drawio-switch-full-screen bx" title="Drawio Switch Full Screen" style=" cursor: pointer; padding: 6px;">
 </div><div class="drawio-save-and-close bx" title="Drawio Close and Exit" style=" cursor: pointer; padding: 6px;">
-</div></div>`);  
-    $('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-switch-theme.bx').click(function(event){//Drawio Switch Theme
-        event.stopPropagation();
-        var $iframe_tmp = $("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper div.iframe-drawio");
-        if ($iframe_tmp.length > 0){
-            if ($iframe_tmp.hasClass("dark")) {
-                $iframe_tmp.removeClass("dark");
-            }
-            else {
-                $iframe_tmp.addClass("dark");
-            }
-        }
-        else{
-            const $iframe_tmp = $("body > div.iframe-drawio");
-            if ($iframe_tmp.hasClass("dark")) {
-                $iframe_tmp.removeClass("dark");
-            }
-            else {
-                $iframe_tmp.addClass("dark");
-            }
-        }
-    });
-    $('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-switch-full-screen.bx').click(function(event){//Drawio full screen
-     event.stopPropagation();
-     const $iframe_tmp = $("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio");
-	if ($iframe_tmp.length > 0) {
-		$iframe_tmp.appendTo($(parent.document).find("body"));
-		$iframe_tmp.css("position", "fixed");
-        $(".tab-row-filler").css("-webkit-app-region","none");
-	}
-	else {
-		const $iframe_tmp = $("body > div.iframe-drawio");
-		$iframe_tmp.appendTo($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper"));
-		$iframe_tmp.css("position", "");
-        $(".tab-row-filler").css("-webkit-app-region","drag");
-	}
-        
-    });
-    //Close and exit button
-    $('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-save-and-close.bx').click(function(event){
-        event.stopPropagation();
-        close();
-    })
-    
-    
+</div></div>`);
+	$('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-switch-theme.bx').click(function (event) {//Drawio Switch Theme
+		event.stopPropagation();
+		var $iframe_tmp = $("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper div.iframe-drawio");
+		if ($iframe_tmp.length > 0) {
+			if ($iframe_tmp.hasClass("dark")) {
+				$iframe_tmp.removeClass("dark");
+			}
+			else {
+				$iframe_tmp.addClass("dark");
+			}
+		}
+		else {
+			const $iframe_tmp = $("body > div.iframe-drawio");
+			if ($iframe_tmp.hasClass("dark")) {
+				$iframe_tmp.removeClass("dark");
+			}
+			else {
+				$iframe_tmp.addClass("dark");
+			}
+		}
+	});
+	$('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-switch-full-screen.bx').click(function (event) {//Drawio full screen
+		event.stopPropagation();
+		const $iframe_tmp = $("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio");
+		if ($iframe_tmp.length > 0) {
+			$iframe_tmp.appendTo($(parent.document).find("body"));
+			$iframe_tmp.css("position", "fixed");
+			$(".tab-row-filler").css("-webkit-app-region", "none");
+		}
+		else {
+			const $iframe_tmp = $("body > div.iframe-drawio");
+			$iframe_tmp.appendTo($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper"));
+			$iframe_tmp.css("position", "");
+			$(".tab-row-filler").css("-webkit-app-region", "drag");
+		}
+
+	});
+	//Close and exit button
+	$('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio .drawio-save-and-close.bx').click(function (event) {
+		event.stopPropagation();
+		close();
+	})
+
+
 	var close = function () {
 		id_svg_dict[noteId] = svg;
 		window.removeEventListener('message', receive);
@@ -83,35 +86,33 @@ function edit(noteId) {
 		}
 		else {
 			$("body > div.iframe-drawio").remove();
-            $(".tab-row-filler").css("-webkit-app-region","drag");
+			$(".tab-row-filler").css("-webkit-app-region", "drag");
 		}
 		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper img.note-detail-image-view").css("display", "block");
-		const decodedString = svg;
-		//const utf8Array = new TextEncoder().encode(decodedString);
-		const base64String = btoa(decodedString);//btoa(String.fromCharCode(...utf8Array));
-		var base64 = "data:image/svg+xml;base64," + base64String;
-		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper img.note-detail-image-view").attr("src", base64);
-        $('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').click(noteId, function () {
+		var img = $("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper img.note-detail-image-view");
+		img.attr("src", img.attr("src"));
+		///////////////////////////////////
+		$('div.component.note-split:not(.hidden-ext) div.component.scrolling-container div.note-detail.component div.note-detail-image-wrapper').click(noteId, function () {
 			edit(noteId);
 		});
 	};
-    
+
 	var receive = function (evt) {
-		if (noteId != currentNoteId || div_iframe == undefined || iframe.contentWindow==null) { return; }
+		if (noteId != currentNoteId || div_iframe == undefined || iframe.contentWindow == null) { return; }
 		if (evt.data.length > 0) {
 			var msg = JSON.parse(evt.data);
-        
+
 			// If configure=1 URL parameter is used the application
 			// waits for this message. For configuration options see
 			// https://desk.draw.io/support/solutions/articles/16000058316
 			if (msg.event == 'configure') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'configure',
-					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman", "SimSun"], css: " body.geEditor > div.mxWindow:nth-of-type(3) { right: 0px !important; top:63px !important;   left: unset !important;} body.geEditor > div.mxWindow:nth-of-type(2) { left: 17px !important; top:63px !important;  " }
+					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman", "SimSun"], css: " body.geEditor > div.mxWindow:nth-of-type(3) { right: 10px !important; top:63px !important;   left: unset !important;} body.geEditor > div.mxWindow:nth-of-type(2) { left: 10px !important; top:63px !important;  " }
 				}), '*');
 			}
 			else if (msg.event == 'init') {
-				iframe.contentWindow.postMessage(JSON.stringify({ action: 'load', autosave: 1, xml: svg, saveAndExit: '0',noExitBtn:'1',saveAndExit: '0' }), '*');//noExitBtn:'1',saveAndExit: '1',
+				iframe.contentWindow.postMessage(JSON.stringify({ action: 'load', autosave: 1, xml: svg, saveAndExit: '0', noExitBtn: '1', saveAndExit: '0' }), '*'); //noExitBtn:'1',saveAndExit: '1',
 			}
 			else if (msg.event == 'export') {
 				// Extracts SVG DOM from data URI to enable links
@@ -130,23 +131,23 @@ function edit(noteId) {
 			else if (msg.event == 'autosave') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'export',
-					format: 'xmlsvg',  spin: 'Updating page',
+					format: 'xmlsvg', spin: 'Updating page',
 				}), '*');
 
 			}
 			else if (msg.event == 'save') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'export',
-					format: 'xmlsvg',  spin: 'Updating page'
+					format: 'xmlsvg', spin: 'Updating page'
 				}), '*');
 			}
 			else if (msg.event == 'exit') {
-                close();
+				close();
 			}
 		}
 	};
 
-	window.addEventListener('message', receive); 
+	window.addEventListener('message', receive);
 };
 
 
@@ -222,7 +223,7 @@ div.iframe-drawio.dark{
 </style>`);
 		return this.$widget;
 	}
-    
+
 	async refreshWithNote(note) {
 		var noteId = note.noteId;
 		currentNoteId = noteId;
@@ -257,11 +258,11 @@ div.iframe-drawio.dark{
 
 				});
 			}
-            if (last_noteId != undefined && last_noteId==noteId){
-                ischangeTab = true;
-            }
+			if (last_noteId != undefined && last_noteId == noteId) {
+				ischangeTab = true;
+			}
 			$last_image_wrapper = $("div.component.note-split:not(.hidden-ext) div.scrolling-container.component");
-            last_noteId = noteId;
+			last_noteId = noteId;
 			if (!ischangeTab) {
 				if ($("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper div.iframe-drawio").length > 0) { $("div.component.note-split:not(.hidden-ext) div.note-detail-image-wrapper div.iframe-drawio").remove(); }
 				if ($("div.component.note-split:not(.hidden-ext) .note-detail-printable.component div.note-detail-image-wrapper img.note-detail-image-view").length > 0) { $("div.component.note-split:not(.hidden-ext) .note-detail-printable.component div.note-detail-image-wrapper img.note-detail-image-view").css("display", "block"); }
@@ -282,16 +283,21 @@ div.iframe-drawio.dark{
 		});
 
 	}
+	async entitiesReloadedEvent({ loadResults }) {
+		if (loadResults.isNoteContentReloaded(this.noteId)) {
+			this.refresh();
+		}
+	}
 }
 
 module.exports = new DrawiIo();
 
-window.onbeforeunload = function () { 
+window.onbeforeunload = function () {
 	if ($("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio").length > 0) {
-			$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio").remove();
-		}
-		else {
-			$("body > div.iframe-drawio").remove();
-            $(".tab-row-filler").css("-webkit-app-region","drag");
-		}
+		$("div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper div.iframe-drawio").remove();
+	}
+	else {
+		$("body > div.iframe-drawio").remove();
+		$(".tab-row-filler").css("-webkit-app-region", "drag");
+	}
 };
