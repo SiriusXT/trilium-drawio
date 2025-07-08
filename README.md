@@ -1,5 +1,5 @@
 ﻿# trilium-drawio
-## version: 0.4 for trilium > 0.62.4
+## version: 0.5 for trilium > 0.62.4
 ## update
 1. Fixed the bug where large files can only be displayed after refreshing when they are closed
 2. Use light theme by default

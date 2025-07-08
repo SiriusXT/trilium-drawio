@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.4
+version:0.5
 */
 
 var defaultTheme = "0" //0:light;1:dark;,2:Follow software theme styles
@@ -108,7 +108,7 @@ function edit(noteId) {
 			if (msg.event == 'configure') {
 				iframe.contentWindow.postMessage(JSON.stringify({
 					action: 'configure',
-					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman", "SimSun"], css: " body.geEditor > div.mxWindow:nth-of-type(3) { right: 10px !important; top:63px !important;   left: unset !important;} body.geEditor > div.mxWindow:nth-of-type(2) { left: 10px !important; top:63px !important;  " }
+					config: { defaultFonts: ["Helvetica", "Verdana", "Times New Roman", "SimSun"], css: " " }
 				}), '*');
 			}
 			else if (msg.event == 'init') {
