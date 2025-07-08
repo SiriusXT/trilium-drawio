@@ -10,7 +10,7 @@ var currentNoteId;
 var themeStyle = getComputedStyle(document.documentElement).getPropertyValue('--theme-style');
 var $last_image_wrapper;//Used to detect tab switching
 var last_noteId;//For detection and switching of new tab pages
-var editor = 'https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json&configure=1&libraries=1&noSaveBtn=1';
+var editor = 'https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json&configure=1&libraries=1&noSaveBtn=1&math=1';
 var id_svg_dict = {}
 var noteId = ''
 
@@ -23,6 +23,7 @@ function edit(noteId) {
 	div_iframe.classList.add("iframe-drawio");
 	var iframe = document.createElement('iframe');
 	iframe.setAttribute('frameborder', '0');
+    iframe.setAttribute('allow', 'clipboard-write');
 	if (themeStyle.indexOf('dark') >= 0 && defaultTheme != 0) { div_iframe.classList.add("dark"); }
 	iframe.setAttribute('src', editor);
 	document.querySelector('div.component.note-split:not(.hidden-ext) .note-detail-image-wrapper').appendChild(div_iframe);
