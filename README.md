@@ -1,8 +1,9 @@
 ﻿# trilium-drawio
-## version: 0.5 for trilium > 0.62.4
+## version: 0.6 for trilium > 0.62.4
+
 ## update
-1. Fixed the bug where large files can only be displayed after refreshing when they are closed
-2. Use light theme by default
+1. fixed bug that blocked editing more than one draw.io diagram in one session
+2. improved handling of dark theme for note previews
 ## Draw.io is a JavaScript, client-side editor for general diagramming and whiteboarding. **This widget allows you to use drawio drawing in trilium.**
 ## Installation
 1. Create a code note of type JS Frontend with the contents of `trilium-drawio.js` and the label `#widget`
