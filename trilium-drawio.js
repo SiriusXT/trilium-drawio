@@ -41,11 +41,9 @@ const styleContent = `.note-detail-image-wrapper:has(> .iframe-drawio) > :not(.i
 	bottom: 0;
 	width: 100%;
 	height: 100%;
-}
-`;
+}`;
 
 const styleElement = document.createElement('style');
-styleElement.id = 'drawio-style';
 styleElement.textContent = styleContent;
 document.head.appendChild(styleElement);
 
@@ -142,7 +140,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	initImageClick(autoEdit) {
 		let count = 0;
 		this.initImageClickTimer = setInterval(() => {
-			const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] div.note-detail-image-wrapper`);
+			const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .note-detail-image-wrapper`);
 
 			if (imgWrapper) {
 				imgWrapper.removeEventListener('click', this.editDrawio);
@@ -165,6 +163,8 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	editDrawio = async (event) => {
+		if (!event.target.closest('.image-viewer-viewport')) return;
+
 		if (drawioConfig.saveRevision) {
 			api.triggerCommand("forceSaveRevision");
 		}
@@ -182,10 +182,8 @@ module.exports = class extends api.NoteContextAwareWidget {
 			iframeDrawio.remove();
 		};
 
-		const iframe = iframeDrawio.querySelector('iframe');
-
 		const receive = async (evt) => {
-			const win = iframe?.contentWindow;
+			const win = iframeDrawio.querySelector('iframe')?.contentWindow;
 			if (!evt.data || !iframeDrawio || !win || evt.source !== win || evt.origin !== drawioConfig.host) {
 				return;
 			}
