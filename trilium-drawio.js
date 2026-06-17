@@ -10,7 +10,7 @@ const drawioConfig = {
 	theme: "trilium",
 
 	// DrawIO embed URL (default is official hosted version; can be self-hosted)
-	host = 'https://embed.diagrams.net',
+	host: 'https://embed.diagrams.net',
 
 	// UI theme: kennedy | min | atlas | dark | sketch | simple
 	ui: 'min',
@@ -123,6 +123,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	async refreshWithNote(note) {
+		clearInterval(this.addClickTimer);
 		await this.initialized;
 
 		const content = (await note.getBlob()).content;
@@ -164,7 +165,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 
 	addClick(autoEdit) {
 		let count = 0;
-		const timer = setInterval(() => {
+		this.addClickTimer = setInterval(() => {
 			const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] div.note-detail-image-wrapper`);
 
 			if (imgWrapper) {
@@ -175,14 +176,14 @@ module.exports = class extends api.NoteContextAwareWidget {
 					this.edit();
 				}
 
-				clearInterval(timer);
+				clearInterval(this.addClickTimer);
 				return;
 			}
 
 			count++;
 
-			if (count >= 30) {
-				clearInterval(timer);
+			if (count >= 50) {
+				clearInterval(this.addClickTimer);
 			}
 		}, 100);
 	}
