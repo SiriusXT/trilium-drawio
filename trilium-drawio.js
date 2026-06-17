@@ -123,7 +123,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	async refreshWithNote(note) {
-		clearInterval(this.addClickTimer);
+		clearInterval(this.initImageClickTimer);
 		await this.initialized;
 
 		const content = (await note.getBlob()).content;
@@ -141,7 +141,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 				title: note.title + ".drawio.svg"
 			});
 		}
-		this.addClick();
+		this.initImageClick();
 
 	}
 	async entitiesReloadedEvent({ loadResults }) {
@@ -163,9 +163,9 @@ module.exports = class extends api.NoteContextAwareWidget {
 		}
 	}
 
-	addClick(autoEdit) {
+	initImageClick(autoEdit) {
 		let count = 0;
-		this.addClickTimer = setInterval(() => {
+		this.initImageClickTimer = setInterval(() => {
 			const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] div.note-detail-image-wrapper`);
 
 			if (imgWrapper) {
@@ -176,14 +176,14 @@ module.exports = class extends api.NoteContextAwareWidget {
 					this.edit();
 				}
 
-				clearInterval(this.addClickTimer);
+				clearInterval(this.initImageClickTimer);
 				return;
 			}
 
 			count++;
 
 			if (count >= 50) {
-				clearInterval(this.addClickTimer);
+				clearInterval(this.initImageClickTimer);
 			}
 		}, 100);
 	}
