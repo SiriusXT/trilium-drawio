@@ -6,13 +6,13 @@ version:0.7
 
 // ==================== DrawIO Configuration ====================
 const drawioConfig = {
-	// Theme mode: "light" | "dark" | "trilium" (follow trilium preference)
-	theme: "trilium",
+	// Theme mode: "light" | "dark" | "auto"
+	theme: "auto",
 
 	// DrawIO embed URL (default is official hosted version; can be self-hosted)
 	host: 'https://embed.diagrams.net',
 
-	// UI theme: kennedy | min | atlas | dark | sketch | simple
+	// UI: kennedy | min | atlas | dark | sketch | simple
 	ui: 'min',
 
 	// Save a snapshot revision before opening the drawio editor
@@ -22,25 +22,8 @@ const drawioConfig = {
 
 // ==================== Widget implementation, no modification required ====================
 
-var themeStyle = getComputedStyle(document.documentElement).getPropertyValue('--theme-style');
 const styleContent = `.note-detail-image-wrapper:has(> .iframe-drawio) > :not(.iframe-drawio) {
 	display:none;
-}
-
-.iframe-drawio iframe {
-	z-index: 100;
-}
-
-.iframe-drawio.dark {
-	filter: invert(88%) hue-rotate(180deg);
-}
-
-.iframe-drawio iframe {
-	border: 0;
-	right: 0;
-	bottom: 0;
-	width: 100%;
-	height: 100%;
 }
 
 .iframe-drawio {
@@ -52,23 +35,14 @@ const styleContent = `.note-detail-image-wrapper:has(> .iframe-drawio) > :not(.i
 	height: 100%;
 }
 
-.iframe-drawio-controller {
-	position: absolute;
-	top: 8px;
-	right: 8px;
-	padding: 0px 4px;
-	border-radius: 5px;
-	color: #837d7d;
-	box-shadow:
-		inset 0 0 0 1px rgba(0, 0, 0, 0.11),
-		inset 0 -1px 0 0 rgba(0, 0, 0, 0.08),
-		0 1px 2px rgba(0, 0, 0, 0.1);
+.iframe-drawio iframe {
+	border: 0;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+	height: 100%;
 }
-
-.iframe-drawio-controller > div {
-	cursor: pointer;
-	padding: 6px;
-}`;
+`;
 
 const styleElement = document.createElement('style');
 styleElement.id = 'drawio-style';
@@ -76,6 +50,7 @@ styleElement.textContent = styleContent;
 document.head.appendChild(styleElement);
 
 // https://github.com/jgraph/drawio/discussions/5612
+// https://github.com/jgraph/drawio/discussions/5615
 const defaultDrawioParams = {
 	embed: 1,        // Enable embed mode
 	ui: drawioConfig.ui ?? 'min', // Minimal UI
@@ -85,23 +60,28 @@ const defaultDrawioParams = {
 	libraries: 1,    // Enable shape libraries
 	math: 1,         // Enable mathematical formulas
 	noSaveBtn: 1,    // Hide save button
-	noExitBtn: 1,    // Hide exit button
+	noExitBtn: 0,    // Hide exit button
 	saveAndExit: 0,   // Do not exit after saving
+	dark: drawioConfig.theme?.includes('dark')
+		? 1
+		: drawioConfig.theme?.includes('light')
+			? 0
+			: 'auto'
 }
 const drawioUrl = `${drawioConfig.host.replace(/\/+$/, '')}/?${new URLSearchParams(defaultDrawioParams)}`;
 
 async function request(method, path, body) {
-    const res = await fetch(path, {
-        method,
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': window.glob?.csrfToken
-        },
-        body: body ? JSON.stringify(body) : undefined
-    });
+	const res = await fetch(path, {
+		method,
+		credentials: 'include',
+		headers: {
+			'Content-Type': 'application/json',
+			'X-CSRF-Token': window.glob?.csrfToken
+		},
+		body: body ? JSON.stringify(body) : undefined
+	});
 
-    return res.json().catch(() => null);
+	return res.json().catch(() => null);
 }
 
 module.exports = class extends api.NoteContextAwareWidget {
@@ -130,35 +110,31 @@ module.exports = class extends api.NoteContextAwareWidget {
 		if (!content.includes("mxfile")) return;
 
 		const iframeDrawio = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext.ntxId}"] .iframe-drawio`);
-		if (iframeDrawio) {
-			iframeDrawio.remove();
-		}
+		iframeDrawio?.remove();
+
 		this._isNewlyCreated =
 			Date.now() - new Date((await note.getMetadata()).utcDateCreated).getTime() < 2000
 			&& !/<(line|polyline|polygon|path)(\s|>)/i.test(content);
+
 		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && this._isNewlyCreated) {
 			await request('PUT', `/api/notes/${this.noteId}/title`, {
 				title: note.title + ".drawio.svg"
 			});
 		}
-		this.initImageClick();
 
+		this.initImageClick();
 	}
+
 	async entitiesReloadedEvent({ loadResults }) {
 		if (loadResults.isNoteContentReloaded(this.noteId)) {
 			// Automatically sync the Draw.io editor when editing the same note
 			const content = (await this.note.getBlob()).content;
 			if (this.lastSyncedContent !== content && content.includes("mxfile")) {
 				this.iframeDrawio?.querySelector('iframe')?.contentWindow?.postMessage(JSON.stringify({
-					action: "merge",
+					action: 'load',
+					autosave: 1,
 					xml: content
 				}), '*');
-				
-				clearTimeout(this._ignoreAutosaveTimer);
-				this._ignoreAutosave = true;
-				this._ignoreAutosaveTimer = setTimeout(() => {
-					this._ignoreAutosave = false;
-				}, 2000);
 			}
 		}
 	}
@@ -169,11 +145,11 @@ module.exports = class extends api.NoteContextAwareWidget {
 			const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] div.note-detail-image-wrapper`);
 
 			if (imgWrapper) {
-				imgWrapper.removeEventListener('click', this.edit);
-				imgWrapper.addEventListener('click', this.edit);
+				imgWrapper.removeEventListener('click', this.editDrawio);
+				imgWrapper.addEventListener('click', this.editDrawio);
 
 				if (this._isNewlyCreated) {
-					this.edit();
+					this.editDrawio();
 				}
 
 				clearInterval(this.initImageClickTimer);
@@ -182,54 +158,29 @@ module.exports = class extends api.NoteContextAwareWidget {
 
 			count++;
 
-			if (count >= 50) {
+			if (count >= 30) {
 				clearInterval(this.initImageClickTimer);
 			}
-		}, 100);
+		}, 200);
 	}
 
-	edit = async (event) => {
+	editDrawio = async (event) => {
 		if (drawioConfig.saveRevision) {
 			api.triggerCommand("forceSaveRevision");
 		}
 
 		const iframeDrawio = document.createElement('div');
 		this.iframeDrawio = iframeDrawio;
-		iframeDrawio.className =
-			'iframe-drawio' +
-			(themeStyle.includes('dark') && drawioConfig.theme !== 'light'
-				? ' dark'
-				: '');
+		iframeDrawio.classList.add('iframe-drawio');
 
-		iframeDrawio.innerHTML = `
-		<div class="iframe-drawio-controller">
-			<div class="drawio-switch-theme bx bx-sun" title="Drawio Switch Theme"></div>
-			<div class="drawio-save-and-close bx bx-x" title="Drawio Close and Exit"></div>
-		</div>
-		<iframe
-			frameborder="0"
-			allow="clipboard-write"
-			src="${drawioUrl}">
-		</iframe>`;
-		const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] div.note-detail-image-wrapper`);
+		iframeDrawio.innerHTML = `<iframe frameborder="0" allow="clipboard-write" src="${drawioUrl}"></iframe>`;
+		const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .note-detail-image-wrapper`);
 		imgWrapper.appendChild(iframeDrawio);
 
-		const close = function () {
+		const close = () => {
 			window.removeEventListener('message', receive);
 			iframeDrawio.remove();
 		};
-
-		iframeDrawio.querySelector('.iframe-drawio-controller')
-			.addEventListener('click', (event) => {
-				event.stopPropagation();
-				const target = event.target.closest('div');
-				if (!target) return;
-				if (target.classList.contains('drawio-switch-theme')) {
-					iframeDrawio.classList.toggle('dark');
-				} else if (target.classList.contains('drawio-save-and-close')) {
-					close();
-				}
-			});
 
 		const iframe = iframeDrawio.querySelector('iframe');
 
@@ -261,13 +212,10 @@ module.exports = class extends api.NoteContextAwareWidget {
 					break;
 				case 'autosave':
 				case 'save':
-					if (!this._ignoreAutosave) {
-						win.postMessage(JSON.stringify({
-							action: 'export',
-							format: 'xmlsvg',
-							spin: 'Updating page'
-						}), '*');
-					}
+					win.postMessage(JSON.stringify({
+						action: 'export',
+						format: 'xmlsvg',
+					}), '*');
 					break;
 				case 'export': {
 					if (msg.format === 'svg' && !msg.filename) {
@@ -277,6 +225,12 @@ module.exports = class extends api.NoteContextAwareWidget {
 						await request('PUT', `/api/notes/${this.noteId}/data`, {
 							content: decoded
 						});
+						// Notify Draw.io that the document has been successfully saved externally (Trilium),
+						// and reset the internal dirty state to prevent the "discard changes" confirmation dialog on exit.
+						win.postMessage(JSON.stringify({
+							action: "status",
+							modified: false
+						}), "*");
 					}
 					break;
 				}
