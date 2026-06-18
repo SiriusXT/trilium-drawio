@@ -9,13 +9,14 @@
 
 ### Method 1
 1. Create a code note of type **JS Frontend**, paste the contents of `trilium-drawio.js` into it, and add the `#widget` tag  
-2. Import `DrawioTemplate.svg` into Notes and assign it the `#template` tag  
+2. Import `drawio.svg` into Notes and assign it the `#template` tag  
 3. Reload the frontend  
 
 ### Method 2
-Directly download the latest `trilium-drawio.zip` from the [Releases page](https://github.com/SiriusXT/trilium-drawio/releases) 
+1. Directly download the latest `trilium-drawio.zip` from the [Releases page](https://github.com/SiriusXT/trilium-drawio/releases) 
+2. Then import it into Trilium. Note: **you do not need to enable secure import**.
+3. Reload the frontend  
 
-Then import it into Trilium. Note: **you do not need to enable secure import**.
 
 ## Tips
 1. The saved format is svg

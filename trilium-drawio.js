@@ -180,7 +180,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 				win.postMessage(JSON.stringify({
 					action: 'load',
 					autosave: 1,
-					xml: content
+					xml: content,
 				}), '*');
 				break;
 			case 'autosave':
@@ -214,7 +214,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	};
 
 	createDrawioEditor = async (event) => {
-		if (!event?.target.closest('.image-viewer-viewport') && event?.target !== this.imgWrapper) return;
+		if (!event?.target.closest('.image-viewer-viewport') && !event?.target.classList.contains('note-detail-image-wrapper') && !event?.target.classList.contains('note-detail-image-view')) return;
 
 		if (drawioConfig.saveRevision) {
 			api.triggerCommand("forceSaveRevision");
