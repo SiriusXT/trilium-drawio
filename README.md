@@ -9,7 +9,7 @@
 
 ### Method 1
 1. Create a code note of type **JS Frontend**, paste the contents of `trilium-drawio.js` into it, and add the `#widget` tag  
-2. Import `drawio.svg` into Notes and assign it the `#template` tag  
+2. Import `DrawioTemplate.svg` into Notes and assign it the `#template` tag  
 3. Reload the frontend  
 
 ### Method 2
@@ -36,4 +36,4 @@ and the self-contained deployment example:
 [https://github.com/jgraph/docker-drawio/blob/dev/self-contained/docker-compose.yml](https://github.com/jgraph/docker-drawio/blob/dev/self-contained/docker-compose.yml)
 
 ## Preview
-![](./preview1.gif)
+![](./preview.gif)
