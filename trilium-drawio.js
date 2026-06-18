@@ -66,7 +66,9 @@ const defaultDrawioParams = {
 			? 0
 			: 'auto'
 }
-const drawioUrl = `${drawioConfig.host.replace(/\/+$/, '')}/?${new URLSearchParams(defaultDrawioParams)}`;
+const drawioOrigin = new URL(drawioConfig.host).origin;
+
+const drawioUrl = `${drawioOrigin}/?${new URLSearchParams(defaultDrawioParams)}`;
 
 async function request(method, path, body) {
 	const res = await fetch(path, {
@@ -92,7 +94,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	isEnabled() {
-		return super.isEnabled() && this.note?.mime === "image/svg+xml";
+		return super.isEnabled();
 	}
 
 	doRender() {
@@ -101,20 +103,24 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	async refreshWithNote(note) {
+		this.imgWrapper?.removeEventListener('click', this.createDrawioEditor);
+		this.closeDrawio();
 		clearInterval(this.initImageClickTimer);
+
+		if (this.note?.mime !== "image/svg+xml") return;
+
+
 		await this.initialized;
 
 		const content = (await note.getBlob()).content;
 		if (!content.includes("mxfile")) return;
 
-		const iframeDrawio = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext.ntxId}"] .iframe-drawio`);
-		iframeDrawio?.remove();
-
-		this._isNewlyCreated =
+		// Check whether this is a newly created blank Draw.io note
+		this.isNewlyCreated =
 			Date.now() - new Date((await note.getMetadata()).utcDateCreated).getTime() < 2000
 			&& !/<(line|polyline|polygon|path)(\s|>)/i.test(content);
 
-		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && this._isNewlyCreated) {
+		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && this.isNewlyCreated) {
 			await request('PUT', `/api/notes/${this.noteId}/title`, {
 				title: note.title + ".drawio.svg"
 			});
@@ -123,31 +129,18 @@ module.exports = class extends api.NoteContextAwareWidget {
 		this.initImageClick();
 	}
 
-	async entitiesReloadedEvent({ loadResults }) {
-		if (loadResults.isNoteContentReloaded(this.noteId)) {
-			// Automatically sync the Draw.io editor when editing the same note
-			const content = (await this.note.getBlob()).content;
-			if (this.lastSyncedContent !== content && content.includes("mxfile")) {
-				this.iframeDrawio?.querySelector('iframe')?.contentWindow?.postMessage(JSON.stringify({
-					action: 'load',
-					autosave: 1,
-					xml: content
-				}), '*');
-			}
-		}
-	}
-
 	initImageClick(autoEdit) {
 		let count = 0;
 		this.initImageClickTimer = setInterval(() => {
-			const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .note-detail-image-wrapper`);
+			if (!this.imgWrapper?.isConnected) {
+				this.imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .note-detail-image-wrapper`);
+			}
+			if (this.imgWrapper) {
+				this.imgWrapper.removeEventListener('click', this.createDrawioEditor);
+				this.imgWrapper.addEventListener('click', this.createDrawioEditor);
 
-			if (imgWrapper) {
-				imgWrapper.removeEventListener('click', this.editDrawio);
-				imgWrapper.addEventListener('click', this.editDrawio);
-
-				if (this._isNewlyCreated) {
-					this.editDrawio();
+				if (this.isNewlyCreated) {
+					this.createDrawioEditor();
 				}
 
 				clearInterval(this.initImageClickTimer);
@@ -162,89 +155,99 @@ module.exports = class extends api.NoteContextAwareWidget {
 		}, 200);
 	}
 
-	editDrawio = async (event) => {
-		if (!event.target.closest('.image-viewer-viewport')) return;
+	closeDrawio = () => {
+		window.removeEventListener('message', this.receiveDrawio);
+		this.iframeDrawio?.remove();
+	}
+
+	receiveDrawio = async (evt) => {
+		const win = this.iframeDrawio.querySelector('iframe')?.contentWindow;
+		if (!evt.data || !this.iframeDrawio || !win || evt.source !== win || evt.origin !== drawioOrigin) {
+			return;
+		}
+
+		const msg = typeof evt.data === "string" ? JSON.parse(evt.data) : evt.data;
+
+		switch (msg?.event) {
+			case 'configure':
+				win.postMessage(JSON.stringify({
+					action: 'configure',
+					config: { css: " " }
+				}), '*');
+				break;
+			case 'init':
+				const content = (await this.note.getBlob()).content;
+				win.postMessage(JSON.stringify({
+					action: 'load',
+					autosave: 1,
+					xml: content
+				}), '*');
+				break;
+			case 'autosave':
+			case 'save':
+				win.postMessage(JSON.stringify({
+					action: 'export',
+					format: 'xmlsvg',
+				}), '*');
+				break;
+			case 'export': {
+				if (msg.format === 'svg' && !msg.filename) {
+					const base64 = msg.data.split(',')[1];
+					const decoded = atob(base64);
+					this.blockMerge = true;
+					await request('PUT', `/api/notes/${this.noteId}/data`, {
+						content: decoded
+					});
+					// Notify Draw.io that the document has been successfully saved externally (Trilium),
+					// and reset the internal dirty state to prevent the "discard changes" confirmation dialog on exit.
+					win.postMessage(JSON.stringify({
+						action: "status",
+						modified: false
+					}), "*");
+				}
+				break;
+			}
+			case 'exit':
+				this.closeDrawio();
+				break;
+		}
+	};
+
+	createDrawioEditor = async (event) => {
+		if (event?.target && !event.target.closest('.image-viewer-viewport')) return;
 
 		if (drawioConfig.saveRevision) {
 			api.triggerCommand("forceSaveRevision");
 		}
 
-		const iframeDrawio = document.createElement('div');
-		this.iframeDrawio = iframeDrawio;
-		iframeDrawio.classList.add('iframe-drawio');
+		this.iframeDrawio = document.createElement('div');
+		this.iframeDrawio.classList.add('iframe-drawio');
+		this.iframeDrawio.innerHTML = `<iframe frameborder="0" allow="clipboard-write" src="${drawioUrl}"></iframe>`;
+		this.imgWrapper.appendChild(this.iframeDrawio);
 
-		iframeDrawio.innerHTML = `<iframe frameborder="0" allow="clipboard-write" src="${drawioUrl}"></iframe>`;
-		const imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .note-detail-image-wrapper`);
-		imgWrapper.appendChild(iframeDrawio);
-
-		const close = () => {
-			window.removeEventListener('message', receive);
-			iframeDrawio.remove();
-		};
-
-		const receive = async (evt) => {
-			const win = iframeDrawio.querySelector('iframe')?.contentWindow;
-			if (!evt.data || !iframeDrawio || !win || evt.source !== win || evt.origin !== drawioConfig.host) {
-				return;
-			}
-
-			const msg =
-				typeof evt.data === "string"
-					? JSON.parse(evt.data)
-					: evt.data;
-
-			switch (msg?.event) {
-				case 'configure':
-					win.postMessage(JSON.stringify({
-						action: 'configure',
-						config: { css: " " }
-					}), '*');
-					break;
-				case 'init':
-					const content = (await this.note.getBlob()).content;
-					win.postMessage(JSON.stringify({
-						action: 'load',
-						autosave: 1,
-						xml: content
-					}), '*');
-					break;
-				case 'autosave':
-				case 'save':
-					win.postMessage(JSON.stringify({
-						action: 'export',
-						format: 'xmlsvg',
-					}), '*');
-					break;
-				case 'export': {
-					if (msg.format === 'svg' && !msg.filename) {
-						const base64 = msg.data.split(',')[1];
-						const decoded = atob(base64);
-						this.lastSyncedContent = decoded;
-						await request('PUT', `/api/notes/${this.noteId}/data`, {
-							content: decoded
-						});
-						// Notify Draw.io that the document has been successfully saved externally (Trilium),
-						// and reset the internal dirty state to prevent the "discard changes" confirmation dialog on exit.
-						win.postMessage(JSON.stringify({
-							action: "status",
-							modified: false
-						}), "*");
-					}
-					break;
-				}
-				case 'exit':
-					close();
-					break;
-			}
-		};
-
-		window.addEventListener('message', receive);
+		window.addEventListener('message', this.receiveDrawio);
 		const timer = setInterval(() => {
-			if (!iframeDrawio.isConnected) {
-				close();
+			if (!this.iframeDrawio?.isConnected) {
+				this.closeDrawio();
 				clearInterval(timer);
 			}
 		}, 10000);
+	}
+
+	async entitiesReloadedEvent({ loadResults }) {
+		if (loadResults.isNoteContentReloaded(this.noteId)) {
+			// Automatically sync the Draw.io editor when editing the same note
+			if (!this.blockMerge) {
+				const content = (await this.note.getBlob()).content;
+				this.iframeDrawio?.querySelector('iframe')?.contentWindow?.postMessage(JSON.stringify({
+					action: 'load',
+					autosave: 1,
+					xml: content
+				}), '*');
+			} else {
+				this.blockMerge = false;
+			}
+		}
 	}
 }
 
