@@ -214,7 +214,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	};
 
 	createDrawioEditor = async (event) => {
-		if (!event?.target.closest('.image-viewer-viewport') && !event?.target.classList.contains('note-detail-image-wrapper') && !event?.target.classList.contains('note-detail-image-view')) return;
+		if (event && !event.target.closest('.image-viewer-viewport') && !event.target.classList.contains('note-detail-image-wrapper') && !event.target.classList.contains('note-detail-image-view')) return;
 
 		if (drawioConfig.saveRevision) {
 			api.triggerCommand("forceSaveRevision");
