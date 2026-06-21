@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.7
+version:0.7.1
 */
 
 // ==================== DrawIO Configuration ====================
@@ -20,27 +20,25 @@ const drawioConfig = {
 }
 
 
+
 // ==================== Widget implementation, no modification required ====================
 
-const styleContent = `.note-detail-image-wrapper:has(> .iframe-drawio) > :not(.iframe-drawio) {
-	display:none;
+const styleContent = `
+.scrolling-container:has(> .drawio-iframe)> :not(.drawio-iframe) {
+    display: none;
 }
 
-.iframe-drawio {
-	z-index: 100;
-	border: 0;
-	right: 0;
-	bottom: 0;
-	width: 100%;
-	height: 100%;
+.drawio-iframe {
+    width: 100%;
+    height: 100%;
 }
 
-.iframe-drawio iframe {
-	border: 0;
-	right: 0;
-	bottom: 0;
-	width: 100%;
-	height: 100%;
+body.zen .note-split.mime-image-svg-xml .ribbon-button-container {
+    display: flex !important;
+}
+
+body.zen .note-split.mime-image-svg-xml .title-row .drawio-edit.icon-action {
+    display: block !important;
 }`;
 
 const styleElement = document.createElement('style');
@@ -67,7 +65,6 @@ const defaultDrawioParams = {
 			: 'auto'
 }
 const drawioOrigin = new URL(drawioConfig.host).origin;
-
 const drawioUrl = `${drawioOrigin}/?${new URLSearchParams(defaultDrawioParams)}`;
 
 async function request(method, path, body) {
@@ -84,9 +81,32 @@ async function request(method, path, body) {
 	return res.json().catch(() => null);
 }
 
+function waitForElement(selectors, parent = document, maxAttempts = 25, interval = 200) {
+	if (!parent) resolve(null);
+	selectors = Array.isArray(selectors) ? selectors : [selectors];
+	return new Promise((resolve, reject) => {
+		let attempts = 0;
+		const timer = setInterval(() => {
+			attempts++;
+			for (const selector of selectors) {
+				const element = parent?.querySelector(selector);
+				if (element) {
+					clearInterval(timer);
+					resolve(element);
+					return;
+				}
+			}
+			if (attempts >= maxAttempts) {
+				clearInterval(timer);
+				resolve(null);
+			}
+		}, interval);
+	});
+}
+
 module.exports = class extends api.NoteContextAwareWidget {
 	get position() {
-		return 100;
+		return 30;
 	}
 
 	static get parentWidget() {
@@ -94,7 +114,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	isEnabled() {
-		return super.isEnabled();
+		return super.isEnabled() && this.note?.mime === "image/svg+xml";
 	}
 
 	doRender() {
@@ -103,18 +123,25 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	async refreshWithNote(note) {
-		this.imgWrapper?.removeEventListener('click', this.createDrawioEditor);
-		this.closeDrawio();
-		clearInterval(this.initImageClickTimer);
-
-		if (this.note?.mime !== "image/svg+xml") return;
-
-
 		await this.initialized;
 
 		const content = (await note.getBlob()).content;
-		if (!content.includes("mxfile")) return;
+		if (!content.includes("mxfile")) {
+			this.removeEditButton();
+			return;
+		}
 
+		if (!this.editButton) {
+			const noteSplit = await waitForElement(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"]`);
+			const buttonContainer = await waitForElement(['.note-actions-custom', '.ribbon-button-container'], parent = noteSplit);
+
+			this.editButton = Object.assign(document.createElement('button'), {
+				className: 'drawio-edit icon-action bx bx-edit',
+				onclick: () => this.createDrawioEditor()
+			});
+			buttonContainer?.prepend(this.editButton);
+		}
+		
 		// Check whether this is a newly created blank Draw.io note
 		this.isNewlyCreated =
 			Date.now() - new Date((await note.getMetadata()).utcDateCreated).getTime() < 2000
@@ -124,45 +151,63 @@ module.exports = class extends api.NoteContextAwareWidget {
 			await request('PUT', `/api/notes/${this.noteId}/title`, {
 				title: note.title + ".drawio.svg"
 			});
+			this.createDrawioEditor();
+		}
+	}
+
+	async noteSwitched() {
+		if (this.note?.mime !== "image/svg+xml") {
+			this.removeEditButton();
+		}
+			
+		this.closeDrawioEditor();
+		await this.refresh();
+	}
+
+	async createDrawioEditor() {
+		if (this.drawioIframe){
+			return;
+		}
+		if (drawioConfig.saveRevision) {
+			api.triggerCommand("forceSaveRevision");
 		}
 
-		this.initImageClick();
+		this.drawioIframe = Object.assign(document.createElement('iframe'), {
+			className: 'drawio-iframe',
+			frameBorder: '0',
+			allow: 'clipboard-write',
+			src: drawioUrl
+		});
+
+		(await waitForElement(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .scrolling-container`))?.appendChild(this.drawioIframe);
+
+		window.addEventListener('message', this.receiveDrawio);
+		clearInterval(this.drawioCheckTimer);
+		this.drawioCheckTimer = setInterval(() => {
+			if (!this.drawioIframe?.isConnected) {
+				this.closeDrawioEditor();
+			}
+		}, 10000);
 	}
 
-	initImageClick(autoEdit) {
-		let count = 0;
-		this.initImageClickTimer = setInterval(() => {
-			if (!this.imgWrapper?.isConnected) {
-				this.imgWrapper = document.querySelector(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .note-detail-image-wrapper`);
-			}
-			if (this.imgWrapper) {
-				this.imgWrapper.removeEventListener('click', this.createDrawioEditor);
-				this.imgWrapper.addEventListener('click', this.createDrawioEditor);
-
-				if (this.isNewlyCreated) {
-					this.createDrawioEditor();
-				}
-
-				clearInterval(this.initImageClickTimer);
-				return;
-			}
-
-			count++;
-
-			if (count >= 30) {
-				clearInterval(this.initImageClickTimer);
-			}
-		}, 200);
-	}
-
-	closeDrawio = () => {
+	closeDrawioEditor() {
+		clearInterval(this.drawioCheckTimer);
+		this.drawioCheckTimer = undefined;
 		window.removeEventListener('message', this.receiveDrawio);
-		this.iframeDrawio?.remove();
+		this.drawioIframe?.remove();
+		this.drawioIframe = undefined;
+	}
+
+	removeEditButton() {
+		clearInterval(this.waitForButtonContainerTimer);
+		this.waitForButtonContainerTimer = undefined;
+		this.editButton?.remove();
+		this.editButton = undefined;
 	}
 
 	receiveDrawio = async (evt) => {
-		const win = this.iframeDrawio.querySelector('iframe')?.contentWindow;
-		if (!evt.data || !this.iframeDrawio || !win || evt.source !== win || evt.origin !== drawioOrigin) {
+		const win = this.drawioIframe?.contentWindow;
+		if (!evt.data || !this.drawioIframe || !win || evt.source !== win || evt.origin !== drawioOrigin) {
 			return;
 		}
 
@@ -172,7 +217,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 			case 'configure':
 				win.postMessage(JSON.stringify({
 					action: 'configure',
-					config: { css: " " }
+					config: { css: 'a[href="https://github.com/jgraph/drawio"] { display: none !important; }' }
 				}), '*');
 				break;
 			case 'init':
@@ -191,7 +236,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 				}), '*');
 				break;
 			case 'export': {
-				if (msg.format === 'svg' && !msg.filename) {
+				if (msg.message.format === 'xmlsvg' && !msg.filename) {
 					const base64 = msg.data.split(',')[1];
 					const decoded = atob(base64);
 					this.blockMerge = true;
@@ -208,49 +253,29 @@ module.exports = class extends api.NoteContextAwareWidget {
 				break;
 			}
 			case 'exit':
-				this.closeDrawio();
+				this.closeDrawioEditor();
 				break;
 		}
 	};
-
-	createDrawioEditor = async (event) => {
-		if (event && !event.target.closest('.image-viewer-viewport') && !event.target.classList.contains('note-detail-image-wrapper') && !event.target.classList.contains('note-detail-image-view')) return;
-
-		if (drawioConfig.saveRevision) {
-			api.triggerCommand("forceSaveRevision");
-		}
-
-		this.iframeDrawio = document.createElement('div');
-		this.iframeDrawio.classList.add('iframe-drawio');
-		this.iframeDrawio.innerHTML = `<iframe frameborder="0" allow="clipboard-write" src="${drawioUrl}"></iframe>`;
-		this.imgWrapper.appendChild(this.iframeDrawio);
-
-		window.addEventListener('message', this.receiveDrawio);
-		const timer = setInterval(() => {
-			if (!this.iframeDrawio?.isConnected) {
-				this.closeDrawio();
-				clearInterval(timer);
-			}
-		}, 10000);
-	}
 
 	async entitiesReloadedEvent({ loadResults }) {
 		if (loadResults.isNoteContentReloaded(this.noteId)) {
 			// Automatically sync the Draw.io editor when editing the same note
 			if (!this.blockMerge) {
 				const content = (await this.note.getBlob()).content;
-				this.iframeDrawio?.querySelector('iframe')?.contentWindow?.postMessage(JSON.stringify({
+				this.drawioIframe?.contentWindow?.postMessage(JSON.stringify({
 					action: 'load',
 					autosave: 1,
 					xml: content
 				}), '*');
 			} else {
-				this.blockMerge = false;
+				this.blockMerge = undefined;
 			}
 		}
 	}
+
 }
 
 window.onbeforeunload = () => {
-	document.querySelectorAll('.iframe-drawio').forEach(el => el.remove());
+	document.querySelectorAll('.drawio-iframe').forEach(el => el.remove());
 };

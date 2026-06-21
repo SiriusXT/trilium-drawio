@@ -1,5 +1,5 @@
 ﻿# trilium-drawio
-## version: 0.7 for trilium > 0.104.0
+## version: 0.7.1 for trilium > 0.104.0
 ## Update
 1. Most of the widget’s logic has been rewritten to adapt to the latest version of Trilium. Several potential bugs have also been fixed, resulting in improved stability and reliability.
 
