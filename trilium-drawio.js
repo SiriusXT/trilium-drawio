@@ -78,30 +78,18 @@ async function request(method, path, body) {
 		body: body ? JSON.stringify(body) : undefined
 	});
 
-	return res.json().catch(() => null);
-}
+	let data = null;
+	try {
+		data = await res.json();
+	} catch { }
 
-function waitForElement(selectors, parent = document, maxAttempts = 25, interval = 200) {
-	if (!parent) resolve(null);
-	selectors = Array.isArray(selectors) ? selectors : [selectors];
-	return new Promise((resolve, reject) => {
-		let attempts = 0;
-		const timer = setInterval(() => {
-			attempts++;
-			for (const selector of selectors) {
-				const element = parent?.querySelector(selector);
-				if (element) {
-					clearInterval(timer);
-					resolve(element);
-					return;
-				}
-			}
-			if (attempts >= maxAttempts) {
-				clearInterval(timer);
-				resolve(null);
-			}
-		}, interval);
-	});
+	if (!res.ok) {
+		api.showMessage("Draw.io failed to save!");
+		throw new Error(data?.message || `HTTP ${res.status}`);
+	}
+
+	.
+	
 }
 
 module.exports = class extends api.NoteContextAwareWidget {
@@ -126,14 +114,14 @@ module.exports = class extends api.NoteContextAwareWidget {
 		await this.initialized;
 
 		const content = (await note.getBlob()).content;
-		if (!content.includes("mxfile")) {
+		if (!content.includes("<mxfile") && !content.includes("&lt;mxfile")) {
 			this.removeEditButton();
 			return;
 		}
 
 		if (!this.editButton) {
-			const noteSplit = await waitForElement(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"]`);
-			const buttonContainer = await waitForElement(['.note-actions-custom', '.ribbon-button-container'], parent = noteSplit);
+			const noteSplit = await this.waitForElement(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"]`);
+			const buttonContainer = await this.waitForElement(['.note-actions-custom', '.ribbon-button-container'], parent = noteSplit);
 
 			this.editButton = Object.assign(document.createElement('button'), {
 				className: 'drawio-edit icon-action bx bx-edit',
@@ -141,13 +129,13 @@ module.exports = class extends api.NoteContextAwareWidget {
 			});
 			buttonContainer?.prepend(this.editButton);
 		}
-		
+
 		// Check whether this is a newly created blank Draw.io note
-		this.isNewlyCreated =
+		const isNewlyCreated =
 			Date.now() - new Date((await note.getMetadata()).utcDateCreated).getTime() < 2000
 			&& !/<(line|polyline|polygon|path)(\s|>)/i.test(content);
 
-		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && this.isNewlyCreated) {
+		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && isNewlyCreated) {
 			await request('PUT', `/api/notes/${this.noteId}/title`, {
 				title: note.title + ".drawio.svg"
 			});
@@ -155,17 +143,8 @@ module.exports = class extends api.NoteContextAwareWidget {
 		}
 	}
 
-	async noteSwitched() {
-		if (this.note?.mime !== "image/svg+xml") {
-			this.removeEditButton();
-		}
-			
-		this.closeDrawioEditor();
-		await this.refresh();
-	}
-
 	async createDrawioEditor() {
-		if (this.drawioIframe){
+		if (this.drawioIframe) {
 			return;
 		}
 		if (drawioConfig.saveRevision) {
@@ -179,7 +158,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 			src: drawioUrl
 		});
 
-		(await waitForElement(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .scrolling-container`))?.appendChild(this.drawioIframe);
+		(await this.waitForElement(`#center-pane .note-split[data-ntx-id="${this.noteContext?.ntxId}"] .scrolling-container`))?.appendChild(this.drawioIframe);
 
 		window.addEventListener('message', this.receiveDrawio);
 		clearInterval(this.drawioCheckTimer);
@@ -188,6 +167,29 @@ module.exports = class extends api.NoteContextAwareWidget {
 				this.closeDrawioEditor();
 			}
 		}, 10000);
+	}
+
+	waitForElement(selectors, parent = document, maxAttempts = 25, interval = 200) {
+		selectors = Array.isArray(selectors) ? selectors : [selectors];
+		return new Promise((resolve, reject) => {
+			let attempts = 0;
+			clearInterval(this.waitForElementTimer);
+			this.waitForElementTimer = setInterval(() => {
+				attempts++;
+				for (const selector of selectors) {
+					const element = parent?.querySelector(selector);
+					if (element) {
+						clearInterval(this.waitForElementTimer);
+						resolve(element);
+						return;
+					}
+				}
+				if (attempts >= maxAttempts) {
+					clearInterval(this.waitForElementTimer);
+					resolve(null);
+				}
+			}, interval);
+		});
 	}
 
 	closeDrawioEditor() {
@@ -258,8 +260,28 @@ module.exports = class extends api.NoteContextAwareWidget {
 		}
 	};
 
+	async noteSwitched() {
+		if (this.note?.mime !== "image/svg+xml") {
+			this.removeEditButton();
+		}
+
+		this.closeDrawioEditor();
+		await this.refresh();
+	}
+
+	async noteTypeMimeChangedEvent({ noteId }) {
+		if (this.isNote(noteId)) {
+			if (this.isEnabled() && !this.editButton) {
+				await this.refresh();
+			} else if (!this.isEnabled() && this.editButton) {
+				this.removeEditButton();
+				this.closeDrawioEditor();
+			}
+		}
+	}
+
 	async entitiesReloadedEvent({ loadResults }) {
-		if (loadResults.isNoteContentReloaded(this.noteId)) {
+		if (this.noteId && loadResults.isNoteContentReloaded(this.noteId)) {
 			// Automatically sync the Draw.io editor when editing the same note
 			if (!this.blockMerge) {
 				const content = (await this.note.getBlob()).content;
@@ -273,7 +295,6 @@ module.exports = class extends api.NoteContextAwareWidget {
 			}
 		}
 	}
-
 }
 
 window.onbeforeunload = () => {
