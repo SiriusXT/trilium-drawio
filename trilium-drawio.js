@@ -67,6 +67,45 @@ const defaultDrawioParams = {
 const drawioOrigin = new URL(drawioConfig.host).origin;
 const drawioUrl = `${drawioOrigin}/?${new URLSearchParams(defaultDrawioParams)}`;
 
+async function updateNote(noteId, fieldName, newValue) {
+	const config = {
+		title: {
+			path: `/api/notes/${noteId}/title`,
+			payload: { title: newValue },
+			fallback: async (noteId, newValue) => {
+				const note = await api.getNote(noteId);
+				note.title = newValue;
+				await note.save();
+			}
+		},
+		content: {
+			path: `/api/notes/${noteId}/data`,
+			payload: { content: newValue },
+			fallback: async (noteId, newValue) => {
+				const note = await api.getNote(noteId);
+				note.setContent(newValue);
+				await note.save();
+			}
+		}
+	}[fieldName];
+
+	if (!config) return;
+
+	try {
+		await request('PUT', config.path, config.payload);
+	} catch (err) {
+		try {
+			await api.runAsyncOnBackendWithManualTransactionHandling(
+				config.fallback,
+				[noteId, newValue]
+			);
+		} catch (e) {
+			api.showMessage(`Failed to save note!`);
+			throw e;
+		}
+	}
+}
+
 async function request(method, path, body) {
 	const res = await fetch(path, {
 		method,
@@ -78,15 +117,12 @@ async function request(method, path, body) {
 		body: body ? JSON.stringify(body) : undefined
 	});
 
-	let data = null;
-	try {
-		data = await res.json();
-	} catch { }
+	const data = await res.json().catch(() => null);
 
 	if (!res.ok) {
-		api.showMessage("Draw.io failed to save!");
-		throw new Error(data?.message || `HTTP ${res.status}`);
+		throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
 	}
+	return data;
 }
 
 module.exports = class extends api.NoteContextAwareWidget {
@@ -133,9 +169,9 @@ module.exports = class extends api.NoteContextAwareWidget {
 			&& !/<(line|polyline|polygon|path)(\s|>)/i.test(content);
 
 		if (isNewlyCreated) {
-			await request('PUT', `/api/notes/${this.noteId}/title`, {
-				title: note.title + ".drawio.svg"
-			});
+			if (!note.title.includes("drawio")){
+				updateNote(this.noteId, "title", note.title + ".drawio.svg");
+			}
 			this.createDrawioEditor();
 		}
 	}
@@ -239,9 +275,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 					const base64 = msg.data.split(',')[1];
 					const decoded = atob(base64);
 					this.blockMerge = true;
-					await request('PUT', `/api/notes/${this.noteId}/data`, {
-						content: decoded
-					});
+					updateNote(this.noteId, "content", decoded);
 					// Notify Draw.io that the document has been successfully saved externally (Trilium),
 					// and reset the internal dirty state to prevent the "discard changes" confirmation dialog on exit.
 					win.postMessage(JSON.stringify({
