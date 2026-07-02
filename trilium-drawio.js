@@ -67,29 +67,29 @@ const defaultDrawioParams = {
 const drawioOrigin = new URL(drawioConfig.host).origin;
 const drawioUrl = `${drawioOrigin}/?${new URLSearchParams(defaultDrawioParams)}`;
 
-async function request(method, path, body) {
-	const res = await fetch(path, {
-		method,
-		credentials: 'include',
-		headers: {
-			'Content-Type': 'application/json',
-			'X-CSRF-Token': window.glob?.csrfToken
-		},
-		body: body ? JSON.stringify(body) : undefined
-	});
-
-	let data = null;
+// Persist note content via the backend Script API. This runs serv.
+// Arguments must be passed in the array because the function is 
+// stringified and loses closure scope.
+async function saveNoteContent(noteId, content) {
 	try {
-		data = await res.json();
-	} catch { }
-
-	if (!res.ok) {
+		await api.runAsyncOnBackendWithManualTransactionHandling(async (noteId, content) => {
+			(await api.getNote(noteId)).setContent(content);
+		}, [noteId, content]);
+	} catch (e) {
 		api.showMessage("Draw.io failed to save!");
-		throw new Error(data?.message || `HTTP ${res.status}`);
+		throw e;
 	}
+}
 
-	.
-	
+async function saveNoteTitle(noteId, title) {
+	try {
+		await api.runAsyncOnBackendWithManualTransactionHandling(async (noteId, title) => {
+			(await api.getNote(noteId)).title = title;
+		}, [noteId, title]);
+	} catch (e) {
+		api.showMessage("Draw.io failed to save!");
+		throw e;
+	}
 }
 
 module.exports = class extends api.NoteContextAwareWidget {
@@ -136,9 +136,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 			&& !/<(line|polyline|polygon|path)(\s|>)/i.test(content);
 
 		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && isNewlyCreated) {
-			await request('PUT', `/api/notes/${this.noteId}/title`, {
-				title: note.title + ".drawio.svg"
-			});
+			await saveNoteTitle(this.noteId, note.title + ".drawio.svg");
 			this.createDrawioEditor();
 		}
 	}
@@ -238,13 +236,13 @@ module.exports = class extends api.NoteContextAwareWidget {
 				}), '*');
 				break;
 			case 'export': {
-				if (msg.message.format === 'xmlsvg' && !msg.filename) {
+				const exportFormat = msg.message?.format ?? msg.format;
+				if (exportFormat === 'xmlsvg' && !msg.filename && typeof msg.data === 'string' && msg.data.includes(',')) {
 					const base64 = msg.data.split(',')[1];
-					const decoded = atob(base64);
+					const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+					const decoded = new TextDecoder('utf-8').decode(bytes);
 					this.blockMerge = true;
-					await request('PUT', `/api/notes/${this.noteId}/data`, {
-						content: decoded
-					});
+					await saveNoteContent(this.noteId, decoded);
 					// Notify Draw.io that the document has been successfully saved externally (Trilium),
 					// and reset the internal dirty state to prevent the "discard changes" confirmation dialog on exit.
 					win.postMessage(JSON.stringify({
@@ -256,6 +254,14 @@ module.exports = class extends api.NoteContextAwareWidget {
 			}
 			case 'exit':
 				this.closeDrawioEditor();
+				// The SVG is saved while the editor iframe covered the note pane, so the
+				// visible render is still the pre-edit image. Reload this note's frontend
+				// cache from the backend, which re-renders the detail pane automatically.
+				try {
+					if (this.noteId) {
+						await api.reloadNotes([this.noteId]);
+					}
+				} catch { }
 				break;
 		}
 	};
