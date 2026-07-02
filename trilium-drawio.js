@@ -87,9 +87,6 @@ async function request(method, path, body) {
 		api.showMessage("Draw.io failed to save!");
 		throw new Error(data?.message || `HTTP ${res.status}`);
 	}
-
-	.
-	
 }
 
 module.exports = class extends api.NoteContextAwareWidget {
@@ -132,10 +129,10 @@ module.exports = class extends api.NoteContextAwareWidget {
 
 		// Check whether this is a newly created blank Draw.io note
 		const isNewlyCreated =
-			Date.now() - new Date((await note.getMetadata()).utcDateCreated).getTime() < 2000
+			Date.now() - (this.noteTypeChangeTime ?? new Date((await note.getMetadata()).utcDateCreated).getTime()) < 2000
 			&& !/<(line|polyline|polygon|path)(\s|>)/i.test(content);
 
-		if (note.hasLabel("originalFileName") && note.getLabel("originalFileName").value == "drawio.svg" && isNewlyCreated) {
+		if (isNewlyCreated) {
 			await request('PUT', `/api/notes/${this.noteId}/title`, {
 				title: note.title + ".drawio.svg"
 			});
@@ -272,6 +269,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 	async noteTypeMimeChangedEvent({ noteId }) {
 		if (this.isNote(noteId)) {
 			if (this.isEnabled() && !this.editButton) {
+				this.noteTypeChangeTime = Date.now();
 				await this.refresh();
 			} else if (!this.isEnabled() && this.editButton) {
 				this.removeEditButton();
