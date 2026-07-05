@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.7.1
+version:0.7.4
 */
 
 // ==================== DrawIO Configuration ====================
@@ -18,7 +18,6 @@ const drawioConfig = {
 	// Save a snapshot revision before opening the drawio editor
 	saveRevision: true,
 }
-
 
 
 // ==================== Widget implementation, no modification required ====================
@@ -125,6 +124,29 @@ async function request(method, path, body) {
 	return data;
 }
 
+async function exportDrawio(data, format, filename = "file") {
+	let blob;
+
+	if (typeof data === "string" && data.startsWith("data:")) {
+		// data URL
+		const res = await fetch(data);
+		blob = await res.blob();
+	} else { // SVG / JSON / HTML
+		blob = new Blob([data]);
+	}
+
+	const ext = format;
+
+	const url = URL.createObjectURL(blob);
+
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = `${filename}.${ext}`;
+
+	a.click();
+	setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 module.exports = class extends api.NoteContextAwareWidget {
 	get position() {
 		return 30;
@@ -158,8 +180,21 @@ module.exports = class extends api.NoteContextAwareWidget {
 
 			this.editButton = Object.assign(document.createElement('button'), {
 				className: 'drawio-edit icon-action bx bx-edit',
-				onclick: () => this.createDrawioEditor()
+				title: 'Open Draw.io Editor',
+				onclick: () => {
+					const open = this.drawioIframe && document.body.contains(this.drawioIframe);
+
+					if (open) {
+						this.closeDrawioEditor();
+					} else {
+						this.createDrawioEditor();
+					}
+					this.editButton.classList.toggle('bx-edit', open);
+					this.editButton.classList.toggle('bx-window-close', !open);
+					this.editButton.title = !open ? 'Close Draw.io Editor' : 'Open Draw.io Editor';
+				}
 			});
+
 			buttonContainer?.prepend(this.editButton);
 		}
 
@@ -169,7 +204,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 			&& !/<(line|polyline|polygon|path)(\s|>)/i.test(content);
 
 		if (isNewlyCreated) {
-			if (!note.title.includes("drawio")){
+			if (!note.title.includes("drawio")) {
 				updateNote(this.noteId, "title", note.title + ".drawio.svg");
 			}
 			this.createDrawioEditor();
@@ -177,9 +212,6 @@ module.exports = class extends api.NoteContextAwareWidget {
 	}
 
 	async createDrawioEditor() {
-		if (this.drawioIframe) {
-			return;
-		}
 		if (drawioConfig.saveRevision) {
 			api.triggerCommand("forceSaveRevision");
 		}
@@ -261,6 +293,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 					action: 'load',
 					autosave: 1,
 					xml: content,
+					exportProtocol: true
 				}), '*');
 				break;
 			case 'autosave':
@@ -271,7 +304,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 				}), '*');
 				break;
 			case 'export': {
-				if (msg.message.format === 'xmlsvg' && !msg.filename) {
+				if (msg?.message?.format === 'xmlsvg' && !msg.filename) {
 					const base64 = msg.data.split(',')[1];
 					const decoded = atob(base64);
 					this.blockMerge = true;
@@ -282,6 +315,9 @@ module.exports = class extends api.NoteContextAwareWidget {
 						action: "status",
 						modified: false
 					}), "*");
+				}
+				else {
+					exportDrawio(msg.data, msg.format, this.note.title);
 				}
 				break;
 			}
