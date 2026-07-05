@@ -317,7 +317,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 					}), "*");
 				}
 				else {
-					exportDrawio(msg.data, msg.format, this.note.title);
+					exportDrawio(msg.data, msg.format, this.note.title.replace(/\.drawio\.svg$/, ''));
 				}
 				break;
 			}
