@@ -1,5 +1,5 @@
 ﻿# trilium-drawio
-## version: 0.7.4
+## version: 0.7.5
 ## Update
 1. Most of the widget’s logic has been rewritten to adapt to the latest version of Trilium. Several potential bugs have also been fixed, resulting in improved stability and reliability.
 
@@ -28,13 +28,13 @@
 
 **A1:** No. Draw.io diagrams are stored as SVG files inside Trilium. Even if you remove this widget, your Draw.io notes will remain fully usable. You can even open them via **Advanced → Open note externally** and edit them using a locally installed Draw.io desktop application, without relying on this widget at all.
 
-**Q2: Why can’t I export to PDF using Draw.io’s built-in export feature?**
+<!-- **Q2: Why can’t I export to PDF using Draw.io’s built-in export feature?**
 
 **A2:** This is because the official hosted Draw.io instance does not include export services by default. To enable PDF export, you need to self-host Draw.io along with the export backend services.
 Please refer to:
 [https://github.com/jgraph/docker-drawio](https://github.com/jgraph/docker-drawio)
 and the self-contained deployment example:
-[https://github.com/jgraph/docker-drawio/blob/dev/self-contained/docker-compose.yml](https://github.com/jgraph/docker-drawio/blob/dev/self-contained/docker-compose.yml)
+[https://github.com/jgraph/docker-drawio/blob/dev/self-contained/docker-compose.yml](https://github.com/jgraph/docker-drawio/blob/dev/self-contained/docker-compose.yml) -->
 
 ## Preview
 ![](./preview.gif)
