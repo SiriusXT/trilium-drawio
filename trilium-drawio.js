@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.7.5
+version:0.7.6
 */
 
 // ==================== DrawIO Configuration ====================
@@ -295,9 +295,9 @@ module.exports = class extends api.NoteContextAwareWidget {
 				break;
 			case 'export': {
 				if (msg?.message?.format === 'xmlsvg' && !msg.filename) {
-					const base64 = msg.data.split(',')[1];
-					const decoded = atob(base64);
 					this.blockMerge = true;
+					const res = await fetch(msg.data);
+					const decoded = await res.text();
 					updateNote(this.noteId, "content", decoded);
 					// Notify Draw.io that the document has been successfully saved externally (Trilium),
 					// and reset the internal dirty state to prevent the "discard changes" confirmation dialog on exit.
