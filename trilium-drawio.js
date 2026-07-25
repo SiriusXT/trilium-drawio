@@ -1,7 +1,7 @@
 /*
 trilium-drawio
 https://github.com/SiriusXT/trilium-drawio
-version:0.7.6
+version:0.7.7
 */
 
 // ==================== DrawIO Configuration ====================
@@ -223,7 +223,7 @@ module.exports = class extends api.NoteContextAwareWidget {
 
 	updateEditButtonState() {
 		if (!this.editButton) return;
-		const hasDrawioEditor = this.drawioIframe && document.body.contains(this.drawioIframe);
+		const hasDrawioEditor = !!this.drawioIframe && document.body.contains(this.drawioIframe);
 		this.editButton.classList.toggle('bx-edit', !hasDrawioEditor);
 		this.editButton.classList.toggle('bx-window-close', hasDrawioEditor);
 		this.editButton.title = hasDrawioEditor ? 'Close Draw.io Editor' : 'Open Draw.io Editor';
